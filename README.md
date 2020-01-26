@@ -24,13 +24,13 @@ To drive the sequences, send triggers into crow's inputs. For output, you have t
 
 #### Commands
 
-|  | | 
-|----|----|
-| __-__ | Jump down an octave |
-| __+__ | Jump up an octave |
-| __N__ | New note |
-| __M__ | Mute |
-| __D__ | Random direction |
-| __?__ | Random position |
-| __1__ | Sync both sequences |
-| __P__ | New note pattern |
+- `-`: Jump down an octave 
+- `+`: Jump up an octave 
+- `N`: New note 
+- `M`: Mute 
+- `D`: Random direction 
+- `?`: Random position 
+- `1`: Sync both sequences 
+- `P`: New note pattern 
+
+
