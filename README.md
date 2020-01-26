@@ -31,4 +31,8 @@ To drive the sequences, send triggers into crow's inputs. For output, you have t
 - `1`: Sync both sequences 
 - `P`: New note pattern 
 
+#### Params
+
+Head to the global params menu to select your scale and output mode. 
+
 
