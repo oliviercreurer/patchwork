@@ -127,6 +127,9 @@ label = {"-", "+", "N", "M", "D", "?", "1", "P"}
 description = {"Octave -", "Octave +", "Random note", "Mute note", "Random direction", "Random position", "Sync sequences", "New pattern"}
 
 function init()
+  crow.init()
+  crow.clear()
+  crow.reset()
   crow.output[2].action = "pulse(.025,5,1)"
   crow.output[4].action = "pulse(.025,5,1)"
 
