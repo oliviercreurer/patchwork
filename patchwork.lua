@@ -1,10 +1,10 @@
 --
 -- PATCHWORK (v1.0)
---
+-- 
 -- Dual sequencer for
 -- norns, grid + crow
 -- @olivier
--- llllllll.co
+-- https://llllllll.co/t/patchwork/28800
 
 local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
