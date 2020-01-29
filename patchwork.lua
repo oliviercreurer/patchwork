@@ -1,10 +1,15 @@
 --
--- PATCHWORK (v1.0)
--- 
+-- PATCHWORK (v1.0.1)
+--
 -- Dual sequencer for
 -- norns, grid + crow
 -- @olivier
--- https://llllllll.co/t/patchwork/28800
+-- llllllll.co/t/patchwork/28800
+--
+-- See full documentation
+-- in library post on lines
+--
+--
 
 local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
@@ -36,9 +41,9 @@ g = grid.connect()
 local music = require 'musicutil'
 
 mode = 1
-scale = music.generate_scale_of_length(60,music.SCALES[mode].name,8)
 
 local offset = {0,0}
+-- local transpose = 0
 local notes = {}
 
 local step = {
@@ -55,14 +60,19 @@ function setOuts(x)
   if x == 1 then
     crow.output[2].action = "pulse(.025,5,1)"
     crow.output[4].action = "pulse(.025,5,1)"
+    crow.ii.jf.mode(0)
     -- crow.ii.pullup(false)
   elseif x == 2 then
     crow.ii.pullup(true)
     crow.ii.jf.mode(1)
+  elseif x == 3 then
+    -- crow.ii.pullup(true)
+    -- crow.ii.jf.mode(1)
+    crow.output[2].action = "pulse(.025,5,1)"
   end
 end
 
--- SEQUENCE LENGTH ------------------------------------------------------
+-- SEQUENCE LENGTH
 
 function setn_A(t,n)
   setmetatable(t,{__len=function() return n end})
@@ -72,10 +82,10 @@ function setn_B(t,n)
   setmetatable(t,{__len=function() return n end})
 end
 
--- COMMANDS -------------------------------------------------------------
+-- COMMANDS
 
 function build_scale()
-  notes = music.generate_scale_of_length(0, params:get("scale_mode"), 8)
+  notes = music.generate_scale_of_length(params:get("root_note")-60, params:get("scale_mode"), 8)
   for i = 1, 8 do
     table.insert(notes, notes[i])
   end
@@ -120,13 +130,11 @@ act = {
   {offsetDec_B, offsetInc_B, newNote_B, rest_B, direction_B, posRand_B, sync_B, newPattern_B}  --newPattern_B
 }
 
--- label = {"1", "-", "+", "N", "M", "D", "?", "P"}
--- description = {"Middle octave", "Octave down", "Octave up", "Random note", "Mute note", "Random direction", "Random position", "New pattern"}
-
 label = {"-", "+", "N", "M", "D", "?", "1", "P"}
 description = {"Octave -", "Octave +", "Random note", "Mute note", "Random direction", "Random position", "Sync sequences", "New pattern"}
 
 function init()
+  -- crow initialization
   crow.init()
   crow.clear()
   crow.reset()
@@ -137,14 +145,18 @@ function init()
     table.insert(scale_names, string.lower(music.SCALES[i].name))
   end
 
-  params:add{type = "option", id = "scale_mode", name = "scale mode",
+  params:add_option("output", "output", {"crow outs (1+2)", "crow ii jf (1+2)", "crow outs + ii jf"}, 1)
+  params:set_action("output", function(x) setOuts(x) end)
+
+  params:add{type = "option", id = "scale_mode", name = "scale",
     options = scale_names, default = 12,
     action = function() build_scale() end}
 
-  params:add_option("output", "output", {"^^ outs", "jf ii 1+2"}, 1)
-  params:set_action("output", function(x) setOuts(x) end)
+  params:add{type = "number", id = "root_note", name = "root note",
+    min = 0, max = 127, default = 60, formatter = function(param) return music.note_num_to_name(param:get(), true) end,
+    action = function() build_scale() end}
 
-  params:add_separator()
+  -- params:add_separator()
 
   -- REDRAW CLOCK
   clk = metro.init(intclk, 0.05, -1)
@@ -175,8 +187,12 @@ function count_A()
     if params:get("output") == 1 then
       crow.output[1].volts = notes[pattern[1][position[1]]]/12 + offset[1]
       crow.output[2].execute()
-    else
+    elseif params:get("output") == 2 then
       crow.ii.jf.play_voice(1,notes[pattern[1][position[1]]]/12 + offset[1],9)
+    elseif params:get("output") == 3 then
+      crow.output[1].volts = notes[pattern[1][position[1]]]/12 + offset[1]
+      crow.output[2].execute()
+      crow.output[3].volts = math.random(0,5)
     end
   else
     rests[1][position[1]-1] = 1
@@ -196,8 +212,11 @@ function count_B()
     if params:get("output") == 1 then
       crow.output[3].volts = notes[pattern[2][position[2]]]/12 + offset[2]
       crow.output[4].execute()
-    else
+    elseif params:get("output") == 2 then
       crow.ii.jf.play_voice(2,notes[pattern[2][position[2]]]/12 + offset[2],9)
+    elseif params:get("output") == 3 then
+      crow.ii.jf.play_note(notes[pattern[2][position[2]]]/12 + offset[2],9)
+      crow.output[4].volts = math.random(0,5)
     end
   else
     rests[2][position[2]-1] = 1
@@ -239,7 +258,6 @@ function intclk()
   for i=1,2 do
     if act[i][step[i][position[i]]] == act[i][7] then
       position[1] = position[2]
-      -- direction[2] = direction[1]
     end
   end
   if pageNum == 1 then
@@ -333,8 +351,6 @@ function drawSeq_A()
   else
     screen.level(2)
   end
-  -- screen.move(11,10)
-  -- screen.text("- G:")
   screen.move(126,10)
   if gridMode[1] == 0 then
     screen.text_right("NOTES")
@@ -494,11 +510,6 @@ function key(n,z)
   redraw()
 end
 
-function patternReset()
-  rests = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
-  newPattern()
-end
-
 function randomize_A()
   for i=1,16 do
     step[1][i] = math.random(commands)
@@ -508,5 +519,13 @@ end
 function randomize_B()
   for i=1,16 do
     step[2][i] = math.random(commands)
+  end
+end
+
+function cleanup()
+  crow.clear()
+  crow.reset()
+  if params:get("output") == 2 or 3 then
+    crow.ii.jf.mode(0)
   end
 end
