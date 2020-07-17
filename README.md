@@ -17,7 +17,7 @@ As of 2.0, each sequence has its own dedicated - and configurable - output optio
 - `JF.NOTE`
 - `MIDI` (device + channel selection options are in params)
 
-> With Just Friends' new and improved polyphonic allocator (in firmware [4.0](https://llllllll.co/t/just-friends-v4-0/34554)), it's possible to send both sequences to a single Just Friends for amazingly lush results.
+> With Just Friends' new and improved polyphonic allocator (in firmware [4.0](https://llllllll.co/t/just-friends-v4-0/34554)), it's possible to send both sequences to a single Just Friends for amazingly lush results. To take advantage of the JF output options, make sure your JF is connected to crow via i2c.
 
 #### Keys & Encoders
 
@@ -44,4 +44,10 @@ As of 2.0, each sequence has its own dedicated - and configurable - output optio
 
 #### Params
 
-Head to the global params menu and scroll down to find the `PATCHWORK` section.
+Head to the global params menu and scroll down to find the `PATCHWORK` section. From there, you can:
+
+- adjust output options per sequence
+- select a scale
+- select a root note
+- select midi device #
+- select midi out channel (per sequence)
