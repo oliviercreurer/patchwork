@@ -1,5 +1,5 @@
 --
--- PATCHWORK (v2.0)
+-- PATCHWORK (v2.1)
 --
 -- Dual sequencer for
 -- norns, grid + crow
@@ -22,12 +22,17 @@ local scale_names = {}
 local scaleLength = 8
 local activeSeq = 0
 
+local bpm = {a=120,b=120}
+
 local position = {1,1}
 local edit = {1,1}
-local seqStart_A = 1
-local seqStart_B = 1
-local seqEnd_A = 16
-local seqEnd_B = 16
+seqStart = {}
+seqStart["A"] = 1
+seqStart["B"] = 1
+seqEnd = {}
+seqEnd["A"] = 16
+seqEnd["B"] = 16
+
 local length = {16,16}
 local noteSel = {1,1}
 local direction = {0,0}
@@ -68,27 +73,25 @@ local rests = {
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 }
 
-function set_out_A(x)
-  if x == 1 then
-    crow.output[2].action = "pulse(.025,5,1)"
-    crow.ii.jf.mode(0)
-  elseif x == 2 then
-    crow.output[4].action = "pulse(.025,5,1)"
-    crow.ii.jf.mode(0)
-  elseif x == 3 then
-    crow.ii.pullup(true)
-    crow.ii.jf.mode(1)
-  end
-end
+local clk_mod = {
+  {1, "1/8"},
+  {2, "1/4"},
+  {4, "1/2"},
+  {6, "3/4"},
+  {8, "none"},
+  {12, "3/2"},
+  {16, "2/1"},
+  {24, "3/1"},
+  {32, "4/1"},
+}
 
-function set_out_B(x)
-  if x == 1 then
+function set_outs(target)
+  local output_param = params:get(target == 1 and "output_a" or "output_b")
+  if output_param == 1 then
     crow.output[2].action = "pulse(.025,5,1)"
-    crow.ii.jf.mode(0)
-  elseif x == 2 then
+  elseif output_param == 2 then
     crow.output[4].action = "pulse(.025,5,1)"
-    crow.ii.jf.mode(0)
-  elseif x == 3 then
+  elseif output_param == 3 or 4 or 5 then
     crow.ii.pullup(true)
     crow.ii.jf.mode(1)
   end
@@ -130,7 +133,7 @@ function offsetInc_A()
 end
 
 function newNote_A() pattern[1][position[1]] = math.random(scaleLength) end
-function posRand_A() position[1] = math.random(seqStart_A,seqEnd_A) end
+function posRand_A() position[1] = math.random(seqStart["A"],seqEnd["A"]) end
 function direction_A() direction[1] = math.random(0,1) end
 function rest_A() end
 
@@ -162,7 +165,7 @@ function offsetInc_B()
 end
 
 function newNote_B() pattern[2][position[2]] = math.random(scaleLength) end
-function posRand_B() position[2] = math.random(seqStart_B,seqEnd_B) end
+function posRand_B() position[2] = math.random(seqStart["B"],seqEnd["B"]) end
 function direction_B() direction[2] = math.random(0,1) end
 function rest_B() end
 
@@ -187,6 +190,8 @@ function all_notes_off(target)
   active_notes[target] = {}
 end
 
+
+
 function init()
   -- crow initialization
   crow.init()
@@ -201,6 +206,8 @@ function init()
   -- encoder 1 sensitivity
   norns.enc.sens(1,5)
 
+  -- clocks
+  seq_clk = {}
   sync_A()
 
   for i = 1, #music.SCALES do
@@ -209,13 +216,15 @@ function init()
 
   -- params
 
-  params:add_group("PATCHWORK", 8)
+  params:set("clock_tempo",120)
+
+  params:add_group("PATCHWORK", 16)
 
   params:add_option("output_a", "output (A)", {"crow 1+2", "crow 3+4", "jf.vox 1", "jf.vox 2", "jf.note", "midi"}, 1)
-  params:set_action("output_a", function(x) set_out_A(x) end)
+  params:set_action("output_a", function(x) set_outs(1) end)
 
-  params:add_option("output_b", "output (B)", {"crow 1+2", "crow 3+4", "jf.vox 1", "jf.vox 2", "jf.note", "midi"}, 2)
-  params:set_action("output_b", function(x) set_out_B(x) end)
+  params:add_option("output_b", "output (B)", {"crow 1+2", "crow 3+4", "jf.vox 1", "jf.vox 2", "jf.note", "midi"}, 1)
+  params:set_action("output_b", function(x) set_outs(2) end)
 
   params:add{type = "option", id = "scale_mode", name = "scale",
     options = scale_names, default = 12,
@@ -225,111 +234,153 @@ function init()
     min = 0, max = 127, default = 60, formatter = function(param) return music.note_num_to_name(param:get(), true) end,
     action = function() build_scale() end}
 
+  params:add_separator("Sequence A")
+
+  params:add{type = "number", id = "bpm_a", name = "BPM (A)",
+    min = 20, max = 240, default = 120,
+    action = function(x) params:set("clock_tempo",x); bpm.a = x; print(bpm.a); params:set("bpm_b",x) end}
+
+  params:add_option("mod_a", "Div/mult (A)", {
+    clk_mod[1][2],
+    clk_mod[2][2],
+    clk_mod[3][2],
+    clk_mod[4][2],
+    clk_mod[5][2],
+    clk_mod[6][2],
+    clk_mod[7][2],
+    clk_mod[8][2],
+    clk_mod[9][2],
+  }, 5)
+
+  params:add{type = "number", id = "prob_a", name = "Probability (A)",
+    min = 0, max = 100, default = 100,
+    action = function(value) end}
+
+  params:add_separator("Sequence B")
+
+  params:add{type = "number", id = "bpm_b", name = "BPM (B)",
+    min = 20, max = 240, default = 120,
+    action = function(value) end}
+
+  params:add_option("mod_b", "Div/mult (B)", {
+    clk_mod[1][2],
+    clk_mod[2][2],
+    clk_mod[3][2],
+    clk_mod[4][2],
+    clk_mod[5][2],
+    clk_mod[6][2],
+    clk_mod[7][2],
+    clk_mod[8][2],
+    clk_mod[9][2],
+  }, 5)
+
+  params:add{type = "number", id = "prob_b", name = "Probability (B)",
+    min = 0, max = 100, default = 100,
+    action = function(value) end}
+
   params:add_separator("Midi")
 
   params:add{type = "number", id = "midi_out_device", name = "midi out device",
     min = 1, max = 4, default = 1,
-    action = function(value) midi_out_device = midi.connect(value) end}
+    action = function(value)
+      midi_out_device = midi.connect(value)
+      for i = 1,127 do
+        midi_out_device:note_off(i, nil, midi_out_channel_A)
+        midi_out_device:note_off(i, nil, midi_out_channel_B)
+      end
+    end}
 
   params:add{type = "number", id = "midi_out_channel_A", name = "midi out channel (A)",
     min = 1, max = 16, default = 1,
     action = function(value)
       all_notes_off(1)
+      for i = 1,127 do
+        midi_out_device:note_off(i, nil, value-1)
+        midi_out_device:note_off(i, nil, value+1)
+      end
       midi_out_channel_A = value
     end}
   params:add{type = "number", id = "midi_out_channel_B", name = "midi out channel (B)",
     min = 1, max = 16, default = 2,
     action = function(value)
       all_notes_off(2)
+      for i = 1,127 do
+        midi_out_device:note_off(i, nil, value-1)
+        midi_out_device:note_off(i, nil, value+1)
+      end
       midi_out_channel_B = value
     end}
 
 
   -- REDRAW CLOCK
-  clk = metro.init(intclk, 0.05, -1)
-  clk:start()
+  draw_clk = metro.init(intclk, 0.05, -1)
+  draw_clk:start()
 
   -- CREATE NEW PATTERNS
-  newPattern_A(seqStart_A,seqEnd_A)
-  newPattern_B(seqStart_B,seqEnd_B)
+  newPattern_A(seqStart["A"],seqEnd["A"])
+  newPattern_B(seqStart["B"],seqEnd["B"])
   build_scale()
 
-  -- CROW SETUP
-  -- Inputs
-  crow.input[1].change = count_A
-  crow.input[1].mode("change", 1.0, 0.25, "rising")
-  crow.input[2].change = count_B
-  crow.input[2].mode("change", 1.0, 0.25, "rising")
+  run()
 end
 
-function count_A()
-  if direction[1] == 0 then
-    position[1] = (position[1]-seqStart_A+1) % (seqEnd_A-seqStart_A+1) + seqStart_A
-  else
-    position[1] = (position[1]-seqStart_A-1) % (seqEnd_A-seqStart_A+1) + seqStart_A
+function run()
+  for i=1,2 do
+    seq_clk[i] = clock.run(bang,i)
   end
-  act[1][step[1][position[1]]](seqStart_A,seqEnd_A)
-  if act[1][step[1][position[1]]] ~= act[1][4] then
-    rests[1][position[1]-1] = 0
-    if params:get("output_a") ~= 6 then
-      all_notes_off(1)
-    end
-    if params:get("output_a") == 1 then
-      crow.output[1].volts = notes[pattern[1][position[1]]]/12 + offset[1]
-      crow.output[2].execute()
-    elseif params:get("output_a") == 2 then
-      crow.output[3].volts = notes[pattern[1][position[1]]]/12 + offset[1]
-      crow.output[4].execute()
-    elseif params:get("output_a") == 3 then
-      crow.ii.jf.play_voice(1,notes[pattern[1][position[1]]]/12 + offset[1],9)
-    elseif params:get("output_a") == 4 then
-      crow.ii.jf.play_voice(2,notes[pattern[1][position[1]]]/12 + offset[1],9)
-    elseif params:get("output_a") == 5 then
-      crow.ii.jf.play_note(notes[pattern[1][position[1]]]/12 + offset[1],9)
-    elseif params:get("output_a") == 6 then
-      all_notes_off(1)
-      --midi_out_device:note_on((notes[pattern[1][position[1]]] + 60) + offset[1],127,midi_out_channel_A)
-      midi_out_device:note_on((notes[pattern[1][position[1]]] + 60) + offset[1],127,params:get("midi_out_channel_A"))
-      table.insert(active_notes[1], (notes[pattern[1][position[1]]] + 60) + offset[1])
-    end
-  else
-    rests[1][position[1]-1] = 1
-  end
-  redraw()
 end
 
-function count_B()
-  if direction[2] == 0 then
-    position[2] = (position[2]-seqStart_B+1) % (seqEnd_B-seqStart_B+1) + seqStart_B
-  else
-    position[2] = (position[2]-seqStart_B-1) % (seqEnd_B-seqStart_B+1) + seqStart_B
+function bang(x)
+  while true do
+    local chance = math.random(0,100)
+    local seq = x == 1 and "a" or "b"
+    if x == 1 then
+      clock.sync(1/(clk_mod[params:get("mod_a")][1]/8))
+    end
+    if x == 2 then
+    clock.sync(1/ (params:get("bpm_b")/clock.get_tempo()) / (clk_mod[params:get("mod_b")][1]/8) )
+    end
+    if chance <= params:get("prob_"..seq) then
+      count(x)
+    end
   end
-  act[2][step[2][position[2]]](seqStart_B,seqEnd_B)
-  if act[2][step[2][position[2]]] ~= act[2][4] then
-    rests[2][position[2]-1] = 0
-    if params:get("output_b") ~= 6 then
-      all_notes_off(2)
+end
+
+function count(x)
+  local Start = seqStart[x == 1 and "A" or "B"]
+  local End = seqEnd[x == 1 and "A" or "B"]
+  local seq = x == 1 and "a" or "b"
+  if direction[x] == 0 then
+    position[x] = (position[x]-Start+1) % (End-Start+1) + Start
+  else
+    position[x] = (position[x]-Start-1) % (End-Start+1) + Start
+  end
+  act[x][step[x][position[x]]](Start,End)
+  if act[x][step[x][position[x]]] ~= act[x][4] then
+    rests[x][position[x]-1] = 0
+    local output_param = params:get(x == 1 and "output_a" or "output_b")
+    if output_param ~= 6 then
+      all_notes_off(x)
     end
-    if params:get("output_b") == 1 then
-      crow.output[1].volts = notes[pattern[2][position[2]]]/12 + offset[2]
+    if output_param == 1 then
+      crow.output[1].volts = notes[pattern[x][position[x]]]/12 + offset[x]
       crow.output[2].execute()
-    elseif params:get("output_b") == 2 then
-      crow.output[3].volts = notes[pattern[2][position[2]]]/12 + offset[2]
+    elseif output_param == 2 then
+      crow.output[3].volts = notes[pattern[x][position[x]]]/12 + offset[x]
       crow.output[4].execute()
-    elseif params:get("output_b") == 3 then
-      crow.ii.jf.play_voice(1,notes[pattern[2][position[2]]]/12 + offset[2],9)
-    elseif params:get("output_b") == 4 then
-      crow.ii.jf.play_voice(2,notes[pattern[2][position[2]]]/12 + offset[2],9)
-    elseif params:get("output_b") == 5 then
-      crow.ii.jf.play_note(notes[pattern[2][position[2]]]/12 + offset[2],9)
-    elseif params:get("output_b") == 6 then
-      all_notes_off(2)
-      --midi_out_device:note_on((notes[pattern[2][position[2]]] + 60) + offset[2],127,midi_out_channel_B)
-      midi_out_device:note_on((notes[pattern[2][position[2]]] + 60) + offset[2],127,params:get("midi_out_channel_B"))
-      table.insert(active_notes[2], (notes[pattern[2][position[2]]] + 60) + offset[2])
+    elseif output_param == 3 then
+      crow.ii.jf.play_voice(1,notes[pattern[x][position[x]]]/12 + offset[x],9)
+    elseif output_param == 4 then
+      crow.ii.jf.play_voice(2,notes[pattern[x][position[x]]]/12 + offset[x],9)
+    elseif output_param == 5 then
+      crow.ii.jf.play_note(notes[pattern[x][position[x]]]/12 + offset[x],9)
+    elseif output_param == 6 then
+      all_notes_off(x)
+      midi_out_device:note_on((notes[pattern[x][position[x]]] + 60) + offset[x],127,params:get(x == 1 and "midi_out_channel_A" or "midi_out_channel_B"))
+      table.insert(active_notes[x], (notes[pattern[x][position[x]]] + 60) + offset[x])
     end
   else
-    rests[2][position[2]-1] = 1
+    rests[x][position[x]-1] = 1
   end
   redraw()
 end
@@ -371,6 +422,11 @@ g.key = function(x,y,z)
 end
 
 function intclk()
+  if bpm.a ~= clock.get_tempo() then
+    params:set("bpm_a", math.floor(clock.get_tempo()))
+    params:set("bpm_b", math.floor(clock.get_tempo()))
+    --params:set("bpm_b", string.format("%.0f",clock.get_tempo()))
+  end
   for i=1,2 do
     if act[i][step[i][position[i]]] == act[i][7] then
       position[1] = position[2]
@@ -381,7 +437,7 @@ function intclk()
       for i=1,16 do
         if gridMode[1] == 0 then
           g:led(i,9-pattern[1][i],2)
-          for i=seqStart_A,seqEnd_A do
+          for i=seqStart["A"],seqEnd["A"] do
             g:led(i,9-pattern[1][i],i==position[1] and 15 or 8)
           end
         else
@@ -396,7 +452,7 @@ function intclk()
       for i=1,16 do
         if gridMode[2] == 0 then
           g:led(i,9-pattern[2][i],2)
-          for i=seqStart_B,seqEnd_B do
+          for i=seqStart["B"],seqEnd["B"] do
             g:led(i,9-pattern[2][i],i==position[2] and 15 or 8)
           end
         else
@@ -461,7 +517,7 @@ function draw_info()
     screen.text("A")
     screen.level(2)
     screen.move(23,57)
-    screen.text(params:string("output_a"))
+    screen.text(params:string("output_a").." / "..params:get("bpm_a").."BPM")
     screen.rect(18,54,2,2)
     screen.fill()
   else
@@ -470,7 +526,7 @@ function draw_info()
     screen.text("B")
     screen.level(2)
     screen.move(23,57)
-    screen.text(params:string("output_b"))
+    screen.text(params:string("output_b").." / "..params:get("bpm_b").."BPM")
     screen.rect(18,54,2,2)
     screen.fill()
   end
@@ -536,7 +592,7 @@ end
 
 function draw_seq()
   -- SEQUENCE A
-  for i=seqStart_A,seqEnd_A do
+  for i=seqStart["A"],seqEnd["A"] do
     if i == position[1] then
       screen.level(15)
     else
@@ -550,7 +606,7 @@ function draw_seq()
     screen.fill()
   end
   -- SEQUENCE B
-  for i=seqStart_B,seqEnd_B do
+  for i=seqStart["B"],seqEnd["B"] do
     if i == position[2] then
       screen.level(15)
     else
@@ -585,13 +641,13 @@ function enc(n,d)
       if keydown[2] == 0 then
         edit[1] = util.clamp(edit[1]+d,1,length[1])
       else
-        seqStart_A = util.clamp(seqStart_A+d,1,seqEnd_A-1)
+        seqStart["A"] = util.clamp(seqStart["A"]+d,1,seqEnd["A"]-1)
       end
     else
       if keydown[2] == 0 then
         edit[2] = util.clamp(edit[2]+d,1,length[2])
       else
-        seqStart_B = util.clamp(seqStart_B+d,1,seqEnd_B-1)
+        seqStart["B"] = util.clamp(seqStart["B"]+d,1,seqEnd["B"]-1)
       end
     end
   elseif n == 3 then
@@ -599,13 +655,13 @@ function enc(n,d)
       if keydown[2] == 0 then
         step[1][edit[1]] = util.clamp(step[1][edit[1]]+d, 1, commands)
       else
-        seqEnd_A = util.clamp(seqEnd_A+d,seqStart_A+1,16)
+        seqEnd["A"] = util.clamp(seqEnd["A"]+d,seqStart["A"]+1,16)
       end
     else
       if keydown[2] == 0 then
         step[2][edit[2]] = util.clamp(step[2][edit[2]]+d, 1, commands)
       else
-        seqEnd_B = util.clamp(seqEnd_B+d,seqStart_B+1,16)
+        seqEnd["B"] = util.clamp(seqEnd["B"]+d,seqStart["B"]+1,16)
       end
     end
   end
@@ -667,14 +723,21 @@ function key(n,z)
 end
 
 function randomize_A()
-  for i=seqStart_A,seqEnd_A do
+  for i=seqStart["A"],seqEnd["A"] do
     step[1][i] = math.random(commands)
   end
 end
 
 function randomize_B()
-  for i=seqStart_B,seqEnd_B do
+  for i=seqStart["B"],seqEnd["B"] do
     step[2][i] = math.random(commands)
+  end
+end
+
+function fuck_up_the_midi()
+  for i = 1,127 do
+    midi_out_device:note_off(i, nil, params:get("midi_out_channel_A"))
+    midi_out_device:note_off(i, nil, params:get("midi_out_channel_B"))
   end
 end
 
@@ -684,4 +747,5 @@ function cleanup()
   if params:get("output") == 2 or 3 then
     crow.ii.jf.mode(0)
   end
+  fuck_up_the_midi()
 end
