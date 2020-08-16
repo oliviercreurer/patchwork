@@ -4,7 +4,17 @@ Patchwork is a dual function sequencer for monome norns, crow and grid. Each seq
 
 The grid has two modes: `NOTES` and `COMMANDS` (you'll see an indication of what mode you're in the bottom right-hand corner of norns' screen). Use the former to edit your note pattern, the latter to edit your command pattern.
 
-To drive the sequences, send triggers into crow's inputs.
+### Clocking
+
+Both sequences are driven by norns' global clock, but each one has its own set of additional options (in the params menu):
+
+- `BPM` - defaults to 120bpm
+- `DIV/MULT` - turn encoder to the right for multiplications of global tempo, left for divisions
+- `PROBABILITY` - sets probability of whether the sequence advances
+
+When adjusting `BPM(A)` in params, `BPM(B)` will be set to the same value, and the global clock will be adjusted accordingly too. This is primarily intended for ease of use. Once `BPM(A)` is set, though, `BPM(B)` can be shifted independently for phasing effects.
+
+If you adjust the global tempo from the system `CLOCK` menu, `BPM(A)` and `BPM(B)` will automatically be set to that new value.
 
 ### Output Options
 
@@ -49,5 +59,6 @@ Head to the global params menu and scroll down to find the `PATCHWORK` section. 
 - adjust output options per sequence
 - select a scale
 - select a root note
+- set clock settings per sequence 
 - select midi device #
 - select midi out channel (per sequence)
