@@ -738,7 +738,7 @@ function fuck_up_the_midi()
 end
 
 norns.crow.add = function()
-  crow.init()
+  norns.crow.init()
   set_outs(1)
   set_outs(2)
 end
