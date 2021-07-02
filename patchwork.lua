@@ -92,7 +92,6 @@ function set_outs(target)
   elseif output_param == 2 then
     crow.output[4].action = "pulse(.025,5,1)"
   elseif output_param == 3 or 4 or 5 then
-    crow.ii.pullup(true)
     crow.ii.jf.mode(1)
   end
 end
@@ -194,9 +193,6 @@ end
 
 function init()
   -- crow initialization
-  crow.init()
-  crow.clear()
-  crow.reset()
   crow.output[2].action = "pulse(.025,5,1)"
   crow.output[4].action = "pulse(.025,5,1)"
 
@@ -364,10 +360,10 @@ function count(x)
     end
     if output_param == 1 then
       crow.output[1].volts = notes[pattern[x][position[x]]]/12 + offset[x]
-      crow.output[2].execute()
+      crow.output[2]()
     elseif output_param == 2 then
       crow.output[3].volts = notes[pattern[x][position[x]]]/12 + offset[x]
-      crow.output[4].execute()
+      crow.output[4]()
     elseif output_param == 3 then
       crow.ii.jf.play_voice(1,notes[pattern[x][position[x]]]/12 + offset[x],9)
     elseif output_param == 4 then
@@ -741,9 +737,13 @@ function fuck_up_the_midi()
   end
 end
 
+norns.crow.add = function()
+  crow.init()
+  set_outs(1)
+  set_outs(2)
+end
+
 function cleanup()
-  crow.clear()
-  crow.reset()
   if params:get("output") == 2 or 3 then
     crow.ii.jf.mode(0)
   end
